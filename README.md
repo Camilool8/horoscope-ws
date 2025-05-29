@@ -25,8 +25,8 @@ Un bot automatizado que envía horóscopos personalizados en español a través 
 ### 1. Clona el Repositorio
 
 ```bash
-git clone https://github.com/tu-usuario/horoscope-scrapping-to-whatsapp-web.git
-cd horoscope-scrapping-to-whatsapp-web
+git clone https://github.com/Camilool8/horoscope-ws.git
+cd horoscope-ws
 ```
 
 ### 2. Configuración
