@@ -231,10 +231,10 @@ docker-compose exec horoscope-bot node index.js --send-now
 
 ### Personalización de Signos
 
-Para cambiar los signos astrológicos, edita el array en `index.js`:
+Para cambiar los signos astrológicos, edita la variable `HOROSCOPES_SIGNS` en el archivo `.env`:
 
-```javascript
-this.signs = ["cancer", "acuario"]; // Cambiar según necesidad
+```bash
+HOROSCOPES_SIGNS=cancer,acuario
 ```
 
 Signos disponibles: `aries`, `tauro`, `geminis`, `cancer`, `leo`, `virgo`, `libra`, `escorpio`, `sagitario`, `capricornio`, `acuario`, `piscis`
