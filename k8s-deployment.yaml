@@ -1,0 +1,220 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: horoscope-bot
+  labels:
+    app: horoscope-bot
+    version: v1.0.0
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: horoscope-bot
+  template:
+    metadata:
+      labels:
+        app: horoscope-bot
+    spec:
+      containers:
+        - name: horoscope-bot
+          image: horoscope-whatsapp:latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 3000
+              name: health-port
+              protocol: TCP
+
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: HEALTH_PORT
+              value: "3000"
+
+          envFrom:
+            - secretRef:
+                name: horoscope-config
+
+          volumeMounts:
+            - name: wwebjs-auth
+              mountPath: /app/.wwebjs_auth
+            - name: logs
+              mountPath: /app/logs
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health-port
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: health-port
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 2
+
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SYS_ADMIN
+
+      volumes:
+        - name: wwebjs-auth
+          persistentVolumeClaim:
+            claimName: horoscope-auth-pvc
+        - name: logs
+          persistentVolumeClaim:
+            claimName: horoscope-logs-pvc
+
+      # Política de restart
+      restartPolicy: Always
+
+      # Afinidad de nodo (opcional)
+      # nodeSelector:
+      #   kubernetes.io/arch: amd64
+
+      # Tolerancias (opcional)
+      # tolerations:
+      # - key: "node-role.kubernetes.io/master"
+      #   operator: "Exists"
+      #   effect: "NoSchedule"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: horoscope-bot-service
+  labels:
+    app: horoscope-bot
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: health-port
+      protocol: TCP
+      name: health
+  selector:
+    app: horoscope-bot
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: horoscope-auth-pvc
+  labels:
+    app: horoscope-bot
+    component: auth
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName: fast-ssd  # Opcional: especificar clase de almacenamiento
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: horoscope-logs-pvc
+  labels:
+    app: horoscope-bot
+    component: logs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  # storageClassName: standard  # Opcional: especificar clase de almacenamiento
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: horoscope-config
+  labels:
+    app: horoscope-bot
+type: Opaque
+stringData:
+  RECIPIENT_PHONE: "CHANGE_ME@c.us" # ⚠️  CAMBIAR POR EL NÚMERO REAL
+  SEND_TIME: "08:00"
+  TZ: "America/Santo_Domingo"
+  SEND_ON_STARTUP: "false"
+  WEEKLY_ENABLED: "false"
+  LOG_MESSAGES: "true"
+
+---
+# NetworkPolicy para mayor seguridad (opcional)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: horoscope-bot-netpol
+spec:
+  podSelector:
+    matchLabels:
+      app: horoscope-bot
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from: [] # Permitir tráfico de health checks
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    - {} # Permitir todo el tráfico saliente (necesario para scraping y WhatsApp)
+
+---
+# Horizontal Pod Autoscaler (Opcional, deshabilitado por defecto)
+# apiVersion: autoscaling/v2
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: horoscope-bot-hpa
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     name: horoscope-bot
+#   minReplicas: 1
+#   maxReplicas: 1  # Máximo 1 para WhatsApp Web
+#   metrics:
+#   - type: Resource
+#     resource:
+#       name: cpu
+#       target:
+#         type: Utilization
+#         averageUtilization: 80
+#   - type: Resource
+#     resource:
+#       name: memory
+#       target:
+#         type: Utilization
+#         averageUtilization: 80

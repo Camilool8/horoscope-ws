@@ -1,0 +1,10 @@
+node_modules
+.wwebjs_auth
+logs
+.env
+.git
+.gitignore
+.dockerignore
+.docker-compose.yml
+.docker-compose.yaml
+.docker-compose.yml

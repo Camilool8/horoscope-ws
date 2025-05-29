@@ -1,0 +1,51 @@
+{
+  "name": "horoscope-scrapping-to-whatsapp-web",
+  "version": "1.0.0",
+  "description": "Daily horoscope scraper that sends personalized Spanish horoscopes via WhatsApp Web",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "node index.js --send-now",
+    "docker:build": "docker build -t horoscope-whatsapp .",
+    "docker:run": "docker run -it --rm -v $(pwd)/.wwebjs_auth:/app/.wwebjs_auth horoscope-whatsapp",
+    "docker:compose": "docker-compose up -d",
+    "docker:logs": "docker-compose logs -f",
+    "docker:stop": "docker-compose down"
+  },
+  "keywords": [
+    "horoscope",
+    "whatsapp",
+    "scraping",
+    "bot",
+    "spanish",
+    "daily",
+    "automation",
+    "puppeteer",
+    "whatsapp-web.js"
+  ],
+  "author": "Camilo Joga",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-schedule": "^2.1.1",
+    "puppeteer": "^24.9.0",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.23.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/horoscope-scrapping-to-whatsapp-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/horoscope-scrapping-to-whatsapp-web/issues"
+  },
+  "homepage": "https://github.com/yourusername/horoscope-scrapping-to-whatsapp-web#readme"
+}

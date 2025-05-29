@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  horoscope-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    platform: linux/amd64
+    container_name: horoscope-whatsapp-bot
+    restart: unless-stopped
+
+    environment:
+      - NODE_ENV=production
+      - TZ=${TZ:-America/Mexico_City}
+
+    env_file:
+      - .env
+
+    volumes:
+      - ./data/wwebjs_auth:/app/.wwebjs_auth
+      - ./data/logs:/app/logs
+
+    ports:
+      - "3000:3000"
+
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js", "--health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    depends_on:
+      - setup-volumes
+
+    labels:
+      - "traefik.enable=false"
+      - "com.docker.compose.project=horoscope-whatsapp"
+
+  setup-volumes:
+    image: alpine:latest
+    container_name: horoscope-setup
+    command: >
+      sh -c "
+        mkdir -p /data/wwebjs_auth /data/logs &&
+        chown -R 1000:1000 /data &&
+        echo 'Volumes setup completed'
+      "
+    volumes:
+      - ./data:/data
+    restart: "no"
+
+volumes:
+  wwebjs_auth:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/wwebjs_auth
+
+  logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/logs
+
+networks:
+  default:
+    name: horoscope-network
