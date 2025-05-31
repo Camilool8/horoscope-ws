@@ -51,6 +51,8 @@ COPY package*.json ./
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage"
+ENV XDG_CONFIG_HOME=/app/.config
+ENV XDG_CACHE_HOME=/app/.cache
 
 RUN npm ci --omit=dev && npm cache clean --force
 
