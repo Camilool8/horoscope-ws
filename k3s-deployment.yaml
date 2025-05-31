@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: horoscope-bot
+  namespace: horoscope-bot
   labels:
     app: horoscope-bot
     version: v1.0.0
@@ -19,8 +20,8 @@ spec:
     spec:
       containers:
         - name: horoscope-bot
-          image: horoscope-whatsapp:latest
-          imagePullPolicy: IfNotPresent
+          image: your-registry/horoscope-bot:latest
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 3000
@@ -69,11 +70,6 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 2
 
-          lifecycle:
-            preStop:
-              exec:
-                command: ["/bin/sh", "-c", "sleep 15"]
-
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
@@ -94,22 +90,13 @@ spec:
             claimName: horoscope-logs-pvc
 
       restartPolicy: Always
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: k3s.io/hostname
-                    operator: In
-                    values:
-                      - cjoga-master
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: horoscope-bot-service
+  name: horoscope-bot
+  namespace: horoscope-bot
   labels:
     app: horoscope-bot
 spec:
@@ -128,6 +115,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: horoscope-auth-pvc
+  namespace: horoscope-bot
   labels:
     app: horoscope-bot
     component: auth
@@ -144,6 +132,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: horoscope-logs-pvc
+  namespace: horoscope-bot
   labels:
     app: horoscope-bot
     component: logs
@@ -160,10 +149,12 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: horoscope-config
+  namespace: horoscope-bot
   labels:
     app: horoscope-bot
 type: Opaque
 stringData:
+  HOROSCOPES_SIGNS: "sign1,sign2"
   RECIPIENT_PHONE: "CHANGE_ME@c.us" # ⚠️  CAMBIAR POR EL NÚMERO REAL
   SEND_TIME: "08:00"
   TZ: "America/Santo_Domingo" # Ajustado para RD

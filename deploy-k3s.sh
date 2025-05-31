@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Deploy script específico para k3s
-# Ejecutar: bash deploy-k3s.sh
+# Script de despliegue para Kubernetes
+# Ejecutar: bash deploy-k8s.sh
 
 set -e
 
@@ -17,44 +17,82 @@ print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 print_error() { echo -e "${RED}❌ $1${NC}"; }
 print_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
 
-echo "🚀 Horoscope WhatsApp Bot - k3s Deployment"
+echo "🚀 Horoscope WhatsApp Bot - Kubernetes Deployment"
 echo "==========================================="
 echo ""
 
-NAMESPACE="horoscope-bot"
-APP_NAME="horoscope-bot"
-IMAGE_NAME="horoscope-whatsapp:latest"
+# Configuración por defecto - EDITAR ESTOS VALORES
+DEFAULT_NAMESPACE="horoscope-bot"
+DEFAULT_APP_NAME="horoscope-bot"
+DEFAULT_IMAGE_NAME="your-registry/horoscope-bot:latest"
+REQUIRED_ARCH="linux/amd64"  # Arquitectura requerida
 
-check_k3s() {
-    echo "🔍 Verificando k3s..."
+# Verificar si se proporcionaron valores personalizados
+NAMESPACE="${K8S_NAMESPACE:-$DEFAULT_NAMESPACE}"
+APP_NAME="${K8S_APP_NAME:-$DEFAULT_APP_NAME}"
+IMAGE_NAME="${DOCKER_IMAGE:-$DEFAULT_IMAGE_NAME}"
+
+check_requirements() {
+    echo "🔍 Verificando requisitos..."
     
     if ! command -v kubectl &> /dev/null; then
-        print_error "kubectl no está disponible. Instala k3s correctamente."
+        print_error "kubectl no está disponible. Por favor, instala kubectl."
+        exit 1
+    fi
+    
+    if ! command -v docker &> /dev/null; then
+        print_error "docker no está disponible. Por favor, instala Docker."
         exit 1
     fi
     
     if ! kubectl cluster-info &> /dev/null; then
-        print_error "No se puede conectar al cluster k3s."
+        print_error "No se puede conectar al cluster Kubernetes."
         exit 1
     fi
     
-    print_success "k3s está funcionando"
+    # Verificar arquitectura del nodo
+    NODE_ARCH=$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}')
+    if [ "$NODE_ARCH" != "amd64" ]; then
+        print_warning "⚠️  El nodo está ejecutando en $NODE_ARCH, pero $REQUIRED_ARCH es requerido"
+        print_info "Se recomienda usar un nodo AMD64 para mejor compatibilidad"
+        read -p "¿Deseas continuar de todos modos? (y/n): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+    
+    print_success "Requisitos verificados"
     
     echo "📊 Info del cluster:"
     kubectl get nodes
     echo ""
+    
+    print_warning "IMPORTANTE: Verifica que los siguientes valores sean correctos:"
+    echo "  Namespace: $NAMESPACE"
+    echo "  App Name: $APP_NAME"
+    echo "  Docker Image: $IMAGE_NAME"
+    echo "  Arquitectura requerida: $REQUIRED_ARCH"
+    echo ""
+    read -p "¿Los valores son correctos? (y/n): " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Puedes configurar los valores usando variables de entorno:"
+        echo "  K8S_NAMESPACE=mi-namespace"
+        echo "  K8S_APP_NAME=mi-app"
+        echo "  DOCKER_IMAGE=mi-registry/mi-imagen:tag"
+        exit 1
+    fi
 }
 
 check_storage() {
     echo "💾 Verificando storage classes..."
     
-    if kubectl get storageclass local-path &> /dev/null; then
-        print_success "StorageClass 'local-path' encontrado (k3s default)"
-        kubectl get storageclass local-path
-    else
-        print_warning "StorageClass 'local-path' no encontrado"
-        print_info "k3s debería tener local-path por defecto. Verificando..."
+    if kubectl get storageclass &> /dev/null; then
+        print_success "StorageClasses disponibles:"
         kubectl get storageclass
+    else
+        print_warning "No se encontraron StorageClasses"
     fi
     echo ""
 }
@@ -72,12 +110,33 @@ build_image() {
         exit 1
     fi
     
-    docker build -t $IMAGE_NAME .
+    print_info "Construyendo imagen para plataforma $REQUIRED_ARCH..."
+    print_warning "⚠️  IMPORTANTE: Esta imagen debe ser construida para $REQUIRED_ARCH"
+    print_info "Usando BuildKit para asegurar la arquitectura correcta..."
     
-    print_info "Importando imagen a k3s..."
-    docker save $IMAGE_NAME | sudo k3s ctr images import -
+    DOCKER_BUILDKIT=1 docker build \
+        --platform $REQUIRED_ARCH \
+        --build-arg TARGETPLATFORM=$REQUIRED_ARCH \
+        -t $IMAGE_NAME .
     
-    print_success "Imagen construida e importada a k3s"
+    print_info "Imagen construida: $IMAGE_NAME"
+    print_warning "IMPORTANTE: Debes subir la imagen a tu registry antes de continuar"
+    print_info "Ejemplo: docker push $IMAGE_NAME"
+    read -p "¿Has subido la imagen a tu registry? (y/n): " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        read -p "¿Quieres subir la imagen a tu registry? (y/n): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            docker push $IMAGE_NAME
+            print_success "Imagen subida a tu registry"
+        else
+            print_error "No se puede continuar sin subir la imagen"
+            exit 1
+        fi
+    fi
+    
+    print_success "Imagen verificada"
     echo ""
 }
 
@@ -100,13 +159,26 @@ setup_secrets() {
         fi
     fi
     
+    # Cargar todas las variables de .env
+    set -a
     source .env
+    set +a
     
+    # Verificar variables requeridas
     if [ -z "$RECIPIENT_PHONE" ] || [ "$RECIPIENT_PHONE" = "CHANGE_ME@c.us" ]; then
         print_error "RECIPIENT_PHONE no está configurado en .env"
         print_info "Formato: 5491123456789@c.us (código país + número + @c.us)"
         exit 1
     fi
+    
+    # Exportar variables para uso en sed
+    export SECRET_RECIPIENT_PHONE="$RECIPIENT_PHONE"
+    export SECRET_HOROSCOPES_SIGNS="${HOROSCOPES_SIGNS:-sign1,sign2}"
+    export SECRET_SEND_TIME="${SEND_TIME:-08:00}"
+    export SECRET_TZ="${TZ:-America/Santo_Domingo}"
+    export SECRET_SEND_ON_STARTUP="${SEND_ON_STARTUP:-false}"
+    export SECRET_WEEKLY_ENABLED="${WEEKLY_ENABLED:-false}"
+    export SECRET_LOG_MESSAGES="${LOG_MESSAGES:-true}"
     
     print_success "Configuración validada"
     echo ""
@@ -115,7 +187,20 @@ setup_secrets() {
 deploy_with_pvc() {
     echo "📦 Desplegando con Persistent Volume Claims..."
     
-    kubectl apply -f k3s-deployment.yaml
+    sed -e "s|image: .*|image: $IMAGE_NAME|g" \
+        -e "s/namespace: .*/namespace: $NAMESPACE/g" \
+        -e "s/name: .*-bot/name: $APP_NAME/g" \
+        -e "s/app: .*-bot/app: $APP_NAME/g" \
+        -e "s/matchLabels:\n.*app: .*-bot/matchLabels:\n      app: $APP_NAME/g" \
+        -e "s/selector:\n.*app: .*-bot/selector:\n    app: $APP_NAME/g" \
+        -e "s|RECIPIENT_PHONE: .*|RECIPIENT_PHONE: \"$SECRET_RECIPIENT_PHONE\"|g" \
+        -e "s|HOROSCOPES_SIGNS: .*|HOROSCOPES_SIGNS: \"$SECRET_HOROSCOPES_SIGNS\"|g" \
+        -e "s|SEND_TIME: .*|SEND_TIME: \"$SECRET_SEND_TIME\"|g" \
+        -e "s|TZ: .*|TZ: \"$SECRET_TZ\"|g" \
+        -e "s|SEND_ON_STARTUP: .*|SEND_ON_STARTUP: \"$SECRET_SEND_ON_STARTUP\"|g" \
+        -e "s|WEEKLY_ENABLED: .*|WEEKLY_ENABLED: \"$SECRET_WEEKLY_ENABLED\"|g" \
+        -e "s|LOG_MESSAGES: .*|LOG_MESSAGES: \"$SECRET_LOG_MESSAGES\"|g" \
+        k3s-deployment.yaml | kubectl apply -f -
     
     print_success "Deployment aplicado con PVCs"
 }
@@ -127,10 +212,25 @@ deploy_with_hostpath() {
     print_info "Usando nodo: $NODE_NAME"
     
     print_info "Creando directorios en el nodo..."
-    sudo mkdir -p /opt/horoscope-bot/{wwebjs_auth,logs}
-    sudo chmod 755 /opt/horoscope-bot/{wwebjs_auth,logs}
+    sudo mkdir -p /opt/$APP_NAME/{wwebjs_auth,logs}
+    sudo chmod 755 /opt/$APP_NAME/{wwebjs_auth,logs}
     
-    sed "s/NODE_NAME/$NODE_NAME/g" k3s-hostpath-deployment.yaml | kubectl apply -f -
+    sed -e "s|image: .*|image: $IMAGE_NAME|g" \
+        -e "s/namespace: .*/namespace: $NAMESPACE/g" \
+        -e "s/name: .*-bot/name: $APP_NAME/g" \
+        -e "s/app: .*-bot/app: $APP_NAME/g" \
+        -e "s/matchLabels:\n.*app: .*-bot/matchLabels:\n      app: $APP_NAME/g" \
+        -e "s/selector:\n.*app: .*-bot/selector:\n    app: $APP_NAME/g" \
+        -e "s|RECIPIENT_PHONE: .*|RECIPIENT_PHONE: \"$SECRET_RECIPIENT_PHONE\"|g" \
+        -e "s|HOROSCOPES_SIGNS: .*|HOROSCOPES_SIGNS: \"$SECRET_HOROSCOPES_SIGNS\"|g" \
+        -e "s|SEND_TIME: .*|SEND_TIME: \"$SECRET_SEND_TIME\"|g" \
+        -e "s|TZ: .*|TZ: \"$SECRET_TZ\"|g" \
+        -e "s|SEND_ON_STARTUP: .*|SEND_ON_STARTUP: \"$SECRET_SEND_ON_STARTUP\"|g" \
+        -e "s|WEEKLY_ENABLED: .*|WEEKLY_ENABLED: \"$SECRET_WEEKLY_ENABLED\"|g" \
+        -e "s|LOG_MESSAGES: .*|LOG_MESSAGES: \"$SECRET_LOG_MESSAGES\"|g" \
+        -e "s/NODE_NAME/$NODE_NAME/g" \
+        -e "s|/opt/horoscope-bot|/opt/$APP_NAME|g" \
+        k3s-hostpath-deployment.yaml | kubectl apply -f -
     
     print_success "Deployment aplicado con hostPath"
 }
@@ -176,7 +276,7 @@ show_final_info() {
     echo "========================="
     echo ""
     
-    CLUSTER_IP=$(kubectl get service horoscope-bot-service -n $NAMESPACE -o jsonpath='{.spec.clusterIP}')
+    CLUSTER_IP=$(kubectl get service $APP_NAME -n $NAMESPACE -o jsonpath='{.spec.clusterIP}')
     
     print_info "Comandos útiles:"
     echo "  # Ver logs"
@@ -189,7 +289,7 @@ show_final_info() {
     echo "  kubectl run test-pod --rm -i --tty --image=curlimages/curl -- curl http://$CLUSTER_IP:3000/health"
     echo ""
     echo "  # Port forward para health check local"
-    echo "  kubectl port-forward service/horoscope-bot-service 3000:3000 -n $NAMESPACE"
+    echo "  kubectl port-forward service/$APP_NAME 3000:3000 -n $NAMESPACE"
     echo "  # Luego: curl http://localhost:3000/health"
     echo ""
     echo "  # Reiniciar deployment"
@@ -203,7 +303,7 @@ show_final_info() {
     echo "  kubectl delete namespace $NAMESPACE"
     echo ""
     
-    print_success "¡Tu bot de horóscopos está corriendo en k3s! 🌟"
+    print_success "¡Tu bot de horóscopos está corriendo en Kubernetes! 🌟"
 }
 
 main() {
@@ -216,7 +316,7 @@ main() {
         exit 1
     fi
     
-    check_k3s
+    check_requirements
     check_storage
     setup_secrets
     build_image
@@ -235,16 +335,21 @@ main() {
 trap 'echo -e "\n\n🛑 Deployment interrumpido"; exit 0' INT
 
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-    echo "Deploy script para k3s"
+    echo "Script de despliegue para Kubernetes"
     echo ""
     echo "Uso: $0 [pvc|hostpath]"
+    echo ""
+    echo "Configuración:"
+    echo "  K8S_NAMESPACE    - Namespace de Kubernetes (default: horoscope-bot)"
+    echo "  K8S_APP_NAME     - Nombre de la aplicación (default: horoscope-bot)"
+    echo "  DOCKER_IMAGE     - Imagen Docker completa (default: your-registry/horoscope-bot:latest)"
     echo ""
     echo "Opciones:"
     echo "  pvc      - Usar Persistent Volume Claims (por defecto)"
     echo "  hostpath - Usar hostPath volumes"
     echo ""
     echo "Ejemplos:"
-    echo "  $0           # Deploy con PVCs"
+    echo "  K8S_NAMESPACE=mi-namespace K8S_APP_NAME=mi-app DOCKER_IMAGE=mi-registry/mi-imagen:tag $0"
     echo "  $0 pvc       # Deploy con PVCs"
     echo "  $0 hostpath  # Deploy con hostPath"
     exit 0

@@ -2,6 +2,13 @@
 
 Un bot automatizado que envía horóscopos personalizados en español a través de WhatsApp Web. Hace scraping de horóscopos de alta calidad de la página [Lecturas.com](https://www.lecturas.com/horoscopo/) y los envía diariamente a tu pareja o persona especial.
 
+## ⚠️ Requisitos de Arquitectura
+
+**IMPORTANTE**: Este bot está optimizado para ejecutarse en arquitectura `linux/amd64`.
+
+- ✅ **Recomendado**: Nodos/Contenedores AMD64 (x86_64)
+- ⚠️ **Experimental**: Soporte para ARM64 (aarch64)
+
 ## ✨ Características
 
 - 📱 **WhatsApp Web Integration**: Envía mensajes directamente desde tu WhatsApp personal
@@ -21,6 +28,7 @@ Un bot automatizado que envía horóscopos personalizados en español a través 
 - Docker y Docker Compose
 - Una cuenta de WhatsApp activa
 - Node.js 18+ (para desarrollo local)
+- **Arquitectura**: AMD64 (x86_64) recomendada
 
 ### 1. Clona el Repositorio
 
@@ -62,12 +70,14 @@ mkdir -p data/wwebjs_auth data/logs
 ### 4. Ejecutar con Docker Compose
 
 ```bash
-# Construir e iniciar el contenedor
+# Construir e iniciar el contenedor (AMD64)
 docker-compose up -d
 
 # Ver logs para obtener el código QR
 docker-compose logs -f horoscope-bot
 ```
+
+> **Nota**: El contenedor se construirá automáticamente para AMD64. Si necesitas otra arquitectura, modifica `docker-compose.yaml`.
 
 ### 5. Escanear Código QR
 
@@ -198,6 +208,12 @@ El formato del número de destinatario debe ser: `[código_país][número]@c.us`
 ## 🐳 Comandos Docker
 
 ```bash
+# Construir imagen para AMD64 (recomendado)
+docker build --platform linux/amd64 -t horoscope-whatsapp .
+
+# Construir imagen para ARM64 (experimental)
+docker build --platform linux/arm64 -t horoscope-whatsapp .
+
 # Ver logs en tiempo real
 docker-compose logs -f
 
@@ -281,15 +297,20 @@ cat data/logs/horoscope-messages.log
 Si estás usando k3s, usa el deployment específico optimizado:
 
 ```bash
+# Verificar arquitectura del nodo
+kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}'
+
 # Verificar storage de k3s
 bash check-k3s-storage.sh
 
-# Deploy automático en k3s
+# Deploy automático en k3s (AMD64)
 bash deploy-k3s.sh
 
 # O deploy manual
 kubectl apply -f k3s-deployment.yaml
 ```
+
+> **Nota**: El deployment está configurado para ejecutarse en nodos AMD64 por defecto. Si necesitas otra arquitectura, modifica `k3s-deployment.yaml`.
 
 Ver [K3S-DEPLOYMENT.md](./K3S-DEPLOYMENT.md) para instrucciones detalladas.
 

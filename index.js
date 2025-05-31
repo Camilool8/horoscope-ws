@@ -14,6 +14,7 @@ const schedule = require("node-schedule");
 const fs = require("fs").promises;
 const path = require("path");
 const qrcode = require("qrcode-terminal");
+const healthApp = require("./healthcheck");
 
 require("dotenv").config();
 
@@ -26,6 +27,7 @@ class HoroscopeWhatsAppBot {
     this.baseUrl = "https://www.lecturas.com/horoscopo";
     console.log("🌟 Inicializando Horoscope WhatsApp Bot...");
     this.setupWhatsAppClient();
+    this.startHealthServer();
   }
 
   setupWhatsAppClient() {
@@ -83,6 +85,13 @@ class HoroscopeWhatsAppBot {
     });
 
     this.whatsappClient.initialize();
+  }
+
+  startHealthServer() {
+    const port = process.env.HEALTH_PORT || 3000;
+    this.healthServer = healthApp.listen(port, "0.0.0.0", () => {
+      console.log(`🏥 Health check server running on port ${port}`);
+    });
   }
 
   async scrapeHoroscope(sign) {
@@ -209,7 +218,6 @@ class HoroscopeWhatsAppBot {
 
       for (const sign of this.signs) {
         const horoscope = await this.scrapeHoroscope(sign);
-        // Solo enviamos el horóscopo diario
         horoscopes.push({
           sign: horoscope.sign,
           daily: horoscope.daily,
@@ -326,13 +334,11 @@ class HoroscopeWhatsAppBot {
 
     console.log(`⏰ Programando envío diario a las ${sendTime}`);
 
-    // Programar envío diario
     schedule.scheduleJob(`${minute} ${hour} * * *`, () => {
       console.log("⏰ ¡Hora del horóscopo diario!");
       this.sendDailyHoroscopes();
     });
 
-    // Programar envío semanal solo los domingos
     if (process.env.WEEKLY_ENABLED === "true") {
       schedule.scheduleJob("0 9 * * 0", () => {
         console.log("📅 ¡Hora del horóscopo semanal!");
@@ -348,7 +354,6 @@ class HoroscopeWhatsAppBot {
     }
 
     console.log("🧪 Enviando mensajes de prueba...");
-    // Enviar tanto el horóscopo diario como el semanal durante la prueba
     await this.sendDailyHoroscopes();
     await this.sendWeeklyHoroscopes();
   }
@@ -358,6 +363,10 @@ class HoroscopeWhatsAppBot {
 
     if (this.whatsappClient) {
       await this.whatsappClient.destroy();
+    }
+
+    if (this.healthServer) {
+      this.healthServer.close();
     }
 
     schedule.gracefulShutdown();

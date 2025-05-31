@@ -1,7 +1,6 @@
-FROM --platform=$BUILDPLATFORM node:18-bullseye-slim
+FROM node:18-bullseye-slim
 
 ARG TARGETPLATFORM
-ARG BUILDPLATFORM
 
 RUN apt-get update && apt-get install -y \
     wget \
@@ -39,17 +38,9 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-        apt-get update && \
-        apt-get install -y chromium && \
-        rm -rf /var/lib/apt/lists/*; \
-    elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-        apt-get update && \
-        apt-get install -y chromium && \
-        rm -rf /var/lib/apt/lists/*; \
-    else \
-        echo "Unsupported platform: $TARGETPLATFORM" && exit 1; \
-    fi
+RUN apt-get update && \
+    apt-get install -y chromium && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -74,7 +65,7 @@ RUN chmod +x healthcheck.js
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node healthcheck.js || exit 1
+    CMD node healthcheck.js --health-check || exit 1
 
 EXPOSE 3000
 

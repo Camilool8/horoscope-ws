@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: horoscope-bot
-          image: horoscope-whatsapp:latest
+          image: your-registry/horoscope-bot:latest
           imagePullPolicy: IfNotPresent
 
           ports:
