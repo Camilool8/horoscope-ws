@@ -15,6 +15,23 @@ const fs = require("fs").promises;
 const path = require("path");
 const qrcode = require("qrcode-terminal");
 const healthApp = require("./healthcheck");
+const pupeeteerArgs = [
+  "--no-sandbox",
+  "--disable-setuid-sandbox",
+  "--disable-dev-shm-usage",
+  "--disable-accelerated-2d-canvas",
+  "--no-first-run",
+  "--no-zygote",
+  "--disable-gpu",
+  "--disable-crash-reporter",
+  "--disable-crashpad",
+  "--disable-background-timer-throttling",
+  "--disable-backgrounding-occluded-windows",
+  "--disable-renderer-backgrounding",
+  "--disable-features=TranslateUI",
+  "--disable-ipc-flooding-protection",
+  "--single-process",
+];
 
 require("dotenv").config();
 
@@ -40,15 +57,7 @@ class HoroscopeWhatsAppBot {
       }),
       puppeteer: {
         headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-accelerated-2d-canvas",
-          "--no-first-run",
-          "--no-zygote",
-          "--disable-gpu",
-        ],
+        args: pupeeteerArgs,
       },
     });
 
@@ -101,11 +110,7 @@ class HoroscopeWhatsAppBot {
     try {
       browser = await puppeteer.launch({
         headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-        ],
+        args: pupeeteerArgs,
       });
 
       const page = await browser.newPage();
