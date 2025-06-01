@@ -1,4 +1,4 @@
-FROM node:18-bullseye-slim
+FROM node:24-bullseye-slim
 
 ARG TARGETPLATFORM
 
@@ -50,16 +50,20 @@ COPY package*.json ./
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage"
-ENV XDG_CONFIG_HOME=/app/.config
-ENV XDG_CACHE_HOME=/app/.cache
+ENV XDG_CONFIG_HOME=/tmp/.chromium
+ENV XDG_CACHE_HOME=/tmp/.chromium
 
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY . .
 
-RUN mkdir -p /app/.wwebjs_auth /app/logs && \
-    chown -R appuser:appuser /app
+RUN mkdir -p /app/.wwebjs_auth /app/logs /app/.wwebjs_cache && \
+    chown -R appuser:appuser /app/.wwebjs_auth /app/logs /app/.wwebjs_cache /app
+
+RUN mkdir -p /tmp/xdg_runtime_dir && \
+    chmod 0700 /tmp/xdg_runtime_dir && \
+    chown appuser:appuser /tmp/xdg_runtime_dir
+
 
 COPY healthcheck.js ./
 RUN chmod +x healthcheck.js

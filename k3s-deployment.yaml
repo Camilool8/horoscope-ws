@@ -18,6 +18,8 @@ spec:
       labels:
         app: horoscope-bot
     spec:
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: horoscope-bot
           image: your-registry/horoscope-bot:latest
@@ -33,6 +35,8 @@ spec:
               value: "production"
             - name: HEALTH_PORT
               value: "3000"
+            - name: XDG_RUNTIME_DIR
+              value: "/tmp/xdg_runtime_dir"
 
           envFrom:
             - secretRef:
@@ -44,42 +48,30 @@ spec:
             - name: logs
               mountPath: /app/logs
 
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "200m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
-
           livenessProbe:
             httpGet:
               path: /health
               port: health-port
-            initialDelaySeconds: 30
+            initialDelaySeconds: 180
             periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 3
+            timeoutSeconds: 15
+            failureThreshold: 5
 
           readinessProbe:
             httpGet:
               path: /ready
               port: health-port
-            initialDelaySeconds: 10
-            periodSeconds: 15
-            timeoutSeconds: 5
-            failureThreshold: 2
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
 
           securityContext:
-            runAsNonRoot: true
-            runAsUser: 1000
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
             capabilities:
               drop:
                 - ALL
-              add:
-                - SYS_ADMIN
 
       volumes:
         - name: wwebjs-auth
