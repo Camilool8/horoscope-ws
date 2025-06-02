@@ -119,9 +119,6 @@ horoscope-scrapping-to-whatsapp-web/
 ├── 📄 Dockerfile                         # Imagen Docker principal
 ├── 📄 docker-compose.yml                 # Orquestación Docker Compose
 │
-├── ☸️ KUBERNETES - ESTÁNDAR
-├── 📄 k8s-deployment.yaml                # Deployment para K8s estándar
-│
 ├── ☸️ KUBERNETES - K3S
 ├── 📄 k3s-deployment.yaml                # Deployment para k3s con PVCs
 │
@@ -148,19 +145,17 @@ horoscope-scrapping-to-whatsapp-web/
 | **Testing**     | `test-scraper.js`, `healthcheck.js`                   |
 | **Docker**      | `Dockerfile`, `docker-compose.yml`                    |
 | **k3s**         | `k3s-*.yaml`, `deploy-k3s.sh`, `check-k3s-storage.sh` |
-| **K8s**         | `k8s-deployment.yaml`                                 |
 | **Setup**       | `quick-start.sh`, `README.md`                         |
 | **Maintenance** | `.gitignore`, `K3S-DEPLOYMENT.md`                     |
 
 ## 🎯 **Puntos de Entrada**
 
-| Escenario        | Comando                                |
-| ---------------- | -------------------------------------- |
-| **Docker Local** | `bash quick-start.sh`                  |
-| **k3s**          | `bash deploy-k3s.sh`                   |
-| **Desarrollo**   | `node index.js`                        |
-| **Testing**      | `node test-scraper.js`                 |
-| **K8s Estándar** | `kubectl apply -f k8s-deployment.yaml` |
+| Escenario        | Comando                |
+| ---------------- | ---------------------- |
+| **Docker Local** | `bash quick-start.sh`  |
+| **k3s**          | `bash deploy-k3s.sh`   |
+| **Desarrollo**   | `node index.js`        |
+| **Testing**      | `node test-scraper.js` |
 
 ## 🔄 **Ciclo de Vida de Archivos**
 
@@ -175,7 +170,6 @@ horoscope-scrapping-to-whatsapp-web/
 
 - `.env` - Desde `.env.template`
 - Imágenes Docker - `docker build`
-- Deployments K8s - `kubectl apply`
 
 ### Persistentes (Importantes)
 
@@ -313,26 +307,6 @@ kubectl apply -f k3s-deployment.yaml
 > **Nota**: El deployment está configurado para ejecutarse en nodos AMD64 por defecto. Si necesitas otra arquitectura, modifica `k3s-deployment.yaml`.
 
 Ver [K3S-DEPLOYMENT.md](./K3S-DEPLOYMENT.md) para instrucciones detalladas.
-
-### Kubernetes Estándar
-
-```bash
-# 1. Crear Namespace
-kubectl create namespace horoscope-bot
-
-# 2. Configurar Secrets
-kubectl create secret generic horoscope-config \
-  --from-literal=RECIPIENT_PHONE=5491123456789@c.us \
-  --from-literal=SEND_TIME=08:00 \
-  --from-literal=TZ=America/Mexico_City \
-  -n horoscope-bot
-
-# 3. Aplicar Manifests
-kubectl apply -f k8s-deployment.yaml
-
-# 4. Obtener Código QR
-kubectl logs -f deployment/horoscope-bot -n horoscope-bot
-```
 
 ## 🔍 Troubleshooting
 
